@@ -45,9 +45,9 @@
   <div id="scaleBox" style="margin-top: 30px; padding: 15px; background: #eef; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
     <h3 style="margin-bottom: 10px;">🎼 Escala más probable:</h3>
     <div id="scaleResult" style="font-size: 1.4em; font-weight: bold; color: #004;"></div>
-    <div id="allScales" style="margin-top:10px; font-size: 0.9em; color: #444;"></div>
+    <div id="allScales" style="display: none;"></div>
   </div>
- style="margin-top:10px; font-size: 0.9em; color: #444;"></div>
+ style="display: none;"></div>
   <div style="width:100%; display:flex; justify-content:flex-end; padding-right:30px; margin-bottom:-20px;">
   <button id="resetBtn">🔄 Reiniciar notas</button>
 </div><br><br>
@@ -140,9 +140,20 @@
       return sampleRate / T0;
     }
 
+    
     startBtn.onclick = async () => {
+      try {
+        if (audioContext && audioContext.state !== "closed") {
+          await audioContext.close();
+        }
+      } catch (e) {
+        console.warn("Error cerrando contexto anterior:", e);
+      }
+
+      try {
+
       const d = parseInt(delaySelect.value);
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
 
       stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -169,6 +180,7 @@
 
       status.textContent = `🎧 Retardo activo: ${d} segundo(s)`;
       startBtn.disabled = true;
+      stopBtn.disabled = false;
       scaleInterval = setInterval(updateScale, 2000);
       stopBtn.disabled = false;
     };
@@ -181,17 +193,35 @@
       document.getElementById("allScales").textContent = "";
     };
 
+    
     stopBtn.onclick = () => {
+      if (animationId) cancelAnimationFrame(animationId);
+      if (scaleInterval) clearInterval(scaleInterval);
+      if (stream) stream.getTracks().forEach(t => t.stop());
+      if (sourceNode) sourceNode.disconnect();
+      if (delayNode) delayNode.disconnect();
+      if (analyser) analyser.disconnect();
+      if (audioContext && audioContext.state !== "closed") {
+        audioContext.close();
+        audioContext = null;
+      }
+      status.textContent = "⏹️ Detenido.";
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+
       stream.getTracks().forEach(t => t.stop());
       sourceNode.disconnect();
       delayNode.disconnect();
       analyser.disconnect();
-      audioContext.close();
+      audioContext && audioContext.state !== "closed" && audioContext.close();
+      audioContext = null;
       cancelAnimationFrame(animationId);
       status.textContent = "⏹️ Detenido.";
       startBtn.disabled = false;
       stopBtn.disabled = true;
       clearInterval(scaleInterval);
+      cancelAnimationFrame(animationId);
     };
   
     function updateScale() {
@@ -232,3 +262,10 @@
 
 </body>
 </html>
+
+
+    } catch (err) {
+      console.error("Error al iniciar el audio:", err);
+      alert("No se pudo acceder al micrófono. Asegúrate de que el Bluetooth esté conectado y que el navegador tenga permisos.");
+      status.textContent = "⚠️ Error al acceder al micrófono.";
+    }
