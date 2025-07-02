@@ -38,11 +38,11 @@
   
   <div id="notesList"></div>
   <h3>🎼 Escala más probable:</h3><div id="allScales" style="margin-top:10px; font-size: 0.9em; color: #444;"></div>
-  <button id="resetBtn">🔄 Reiniciar notas</button><br><br><div id="scaleResult" style="font-size: 1.4em; font-weight: bold; color: #006;">Analizando...</div>
+  <button id="resetBtn" style="float:right; margin-right:20px;">🔄 Reiniciar notas</button><br><br><div id="scaleResult" style="font-size: 1.4em; font-weight: bold; color: #006;">Analizando...</div>
 
 
   <script>
-    let audioContext, analyser, delayNode, sourceNode, stream, detectedNotes = new Set(), scaleInterval;
+    let audioContext, analyser, delayNode, sourceNode, stream, detectedNotes = new Set(), scaleInterval, stableScale = "", stableCount = 0;
     let pitchWorker, animationId;
     const notesList = document.getElementById("notesList");
     const startBtn = document.getElementById("startBtn");
@@ -162,6 +162,7 @@
 
     resetBtn.onclick = () => {
       detectedNotes.clear();
+      
       notesList.innerHTML = "";
       document.getElementById("scaleResult").textContent = "Analizando...";
       document.getElementById("allScales").textContent = "";
