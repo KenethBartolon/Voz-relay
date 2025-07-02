@@ -75,5 +75,92 @@
       stopBtn.disabled = true;
     };
   </script>
+
+  <canvas id="waveform" width="600" height="100" style="margin-top: 30px; background: white; border: 1px solid #ccc;"></canvas>
+
+  <script>
+    let analyser, dataArray, animationId;
+    const canvas = document.getElementById("waveform");
+    const ctx = canvas.getContext("2d");
+
+    function drawWaveform() {
+      analyser.getByteTimeDomainData(dataArray);
+      ctx.fillStyle = "#fff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = "#007acc";
+      ctx.beginPath();
+
+      const sliceWidth = canvas.width / dataArray.length;
+      let x = 0;
+
+      for (let i = 0; i < dataArray.length; i++) {
+        const v = dataArray[i] / 128.0;
+        const y = v * canvas.height / 2;
+
+        if (i === 0) {
+          ctx.moveTo(x, y);
+        } else {
+          ctx.lineTo(x, y);
+        }
+
+        x += sliceWidth;
+      }
+
+      ctx.lineTo(canvas.width, canvas.height / 2);
+      ctx.stroke();
+
+      animationId = requestAnimationFrame(drawWaveform);
+    }
+
+    startBtn.onclick = async () => {
+      const d = parseInt(delaySelect.value);
+      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+          sampleRate: 48000,
+          channelCount: 1
+        }
+      });
+
+      sourceNode = audioContext.createMediaStreamSource(stream);
+      delayNode = audioContext.createDelay(15);
+      delayNode.delayTime.setValueAtTime(d, audioContext.currentTime);
+
+      analyser = audioContext.createAnalyser();
+      analyser.fftSize = 2048;
+      const bufferLength = analyser.fftSize;
+      dataArray = new Uint8Array(bufferLength);
+
+      sourceNode.connect(delayNode);
+      delayNode.connect(audioContext.destination);
+      sourceNode.connect(analyser);
+
+      drawWaveform();
+
+      status.textContent = `🎧 Retardo activo: ${d} segundo(s)`;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => {
+      stream.getTracks().forEach(t => t.stop());
+      sourceNode.disconnect();
+      delayNode.disconnect();
+      analyser.disconnect();
+      audioContext.close();
+      cancelAnimationFrame(animationId);
+      status.textContent = "⏹️ Detenido.";
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
 </body>
+</html>
+
 </html>
