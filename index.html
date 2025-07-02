@@ -2,116 +2,122 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Voz con Retardo en Alta Calidad</title>
+  <title>Detección de Notas Cantadas</title>
   <style>
-    body { font-family: sans-serif; text-align: center; padding: 2em; background: #f0f0f0; }
+    body { font-family: sans-serif; text-align: center; padding: 2em; background: #f9f9f9; }
     select, button { font-size: 1.2em; margin: 10px; padding: 10px; }
     .status { margin-top: 20px; font-weight: bold; }
+    #notesList { margin-top: 20px; max-height: 150px; overflow-y: auto; border: 1px solid #ccc; background: #fff; padding: 10px; width: 300px; margin-left: auto; margin-right: auto; }
+    #notesList div { padding: 4px; border-bottom: 1px solid #eee; }
   </style>
 </head>
 <body>
-  <h1>🔁 Voz con Retardo (Alta Calidad)</h1>
+  <h1>🎤 Detección de Notas Cantadas</h1>
   <label for="delay">Retardo (segundos):</label>
   <select id="delay">
     <option value="1">1 segundo</option>
-<option value="2">2 segundos</option>
-<option value="3">3 segundos</option>
-<option value="4">4 segundos</option>
-<option value="5">5 segundos</option>
-<option value="6">6 segundos</option>
-<option value="7">7 segundos</option>
-<option value="8">8 segundos</option>
-<option value="9">9 segundos</option>
-<option value="10">10 segundos</option>
-<option value="11">11 segundos</option>
-<option value="12">12 segundos</option>
-<option value="13">13 segundos</option>
-<option value="14">14 segundos</option>
-<option value="15">15 segundos</option>
+    <option value="2">2 segundos</option>
+    <option value="3">3 segundos</option>
+    <option value="4">4 segundos</option>
+    <option value="5">5 segundos</option>
+    <option value="6">6 segundos</option>
+    <option value="7">7 segundos</option>
+    <option value="8">8 segundos</option>
+    <option value="9">9 segundos</option>
+    <option value="10">10 segundos</option>
+    <option value="11">11 segundos</option>
+    <option value="12">12 segundos</option>
+    <option value="13">13 segundos</option>
+    <option value="14">14 segundos</option>
+    <option value="15">15 segundos</option>
   </select><br>
   <button id="startBtn">🎙️ Iniciar</button>
   <button id="stopBtn" disabled>⏹️ Detener</button>
   <div class="status" id="status">Esperando...</div>
 
+  <div id="notesList"></div>
+
   <script>
-    let audioContext, sourceNode, delayNode, stream;
+    let audioContext, analyser, delayNode, sourceNode, stream;
+    let pitchWorker, animationId;
+    const notesList = document.getElementById("notesList");
     const startBtn = document.getElementById("startBtn");
     const stopBtn  = document.getElementById("stopBtn");
     const delaySelect = document.getElementById("delay");
     const status = document.getElementById("status");
 
-    startBtn.onclick = async () => {
-      const d = parseInt(delaySelect.value);
-      audioContext = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 });
+    function noteFromPitch(frequency) {
+      const noteStrings = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+      const A4 = 440;
+      const semitones = 12 * (Math.log(frequency / A4) / Math.log(2));
+      const noteNumber = Math.round(semitones) + 69;
+      const note = noteStrings[noteNumber % 12];
+      const octave = Math.floor(noteNumber / 12) - 1;
+      return note + octave;
+    }
 
-      stream = await navigator.mediaDevices.getUserMedia({
-        audio: {
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false,
-          sampleRate: 48000,
-          channelCount: 1
+    function detectPitch() {
+      const bufferLength = analyser.fftSize;
+      const data = new Float32Array(bufferLength);
+      analyser.getFloatTimeDomainData(data);
+      const ac = autoCorrelate(data, audioContext.sampleRate);
+
+      if (ac !== -1) {
+        const note = noteFromPitch(ac);
+        const div = document.createElement("div");
+        div.textContent = `Nota: ${note} (${ac.toFixed(2)} Hz)`;
+        notesList.prepend(div);
+        if (notesList.children.length > 20) {
+          notesList.removeChild(notesList.lastChild);
         }
-      });
-
-      sourceNode = audioContext.createMediaStreamSource(stream);
-      delayNode = audioContext.createDelay(15);
-      delayNode.delayTime.setValueAtTime(d, audioContext.currentTime);
-      sourceNode.connect(delayNode);
-      delayNode.connect(audioContext.destination);
-
-      status.textContent = `🎧 Retardo activo: ${d} segundo(s)`;
-      startBtn.disabled = true;
-      stopBtn.disabled = false;
-    };
-
-    stopBtn.onclick = () => {
-      stream.getTracks().forEach(t => t.stop());
-      sourceNode.disconnect();
-      delayNode.disconnect();
-      audioContext.close();
-      status.textContent = "⏹️ Detenido.";
-      startBtn.disabled = false;
-      stopBtn.disabled = true;
-    };
-  </script>
-
-  <canvas id="waveform" width="600" height="100" style="margin-top: 30px; background: white; border: 1px solid #ccc;"></canvas>
-
-  <script>
-    let analyser, dataArray, animationId;
-    const canvas = document.getElementById("waveform");
-    const ctx = canvas.getContext("2d");
-
-    function drawWaveform() {
-      analyser.getByteTimeDomainData(dataArray);
-      ctx.fillStyle = "#fff";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = "#007acc";
-      ctx.beginPath();
-
-      const sliceWidth = canvas.width / dataArray.length;
-      let x = 0;
-
-      for (let i = 0; i < dataArray.length; i++) {
-        const v = dataArray[i] / 128.0;
-        const y = v * canvas.height / 2;
-
-        if (i === 0) {
-          ctx.moveTo(x, y);
-        } else {
-          ctx.lineTo(x, y);
-        }
-
-        x += sliceWidth;
       }
 
-      ctx.lineTo(canvas.width, canvas.height / 2);
-      ctx.stroke();
+      animationId = requestAnimationFrame(detectPitch);
+    }
 
-      animationId = requestAnimationFrame(drawWaveform);
+    function autoCorrelate(buf, sampleRate) {
+      let SIZE = buf.length;
+      let rms = 0;
+      for (let i = 0; i < SIZE; i++) {
+        rms += buf[i] * buf[i];
+      }
+      rms = Math.sqrt(rms / SIZE);
+      if (rms < 0.01) return -1;
+
+      let r1 = 0, r2 = SIZE - 1, threshold = 0.2;
+      for (let i = 0; i < SIZE / 2; i++) {
+        if (Math.abs(buf[i]) < threshold) { r1 = i; break; }
+      }
+      for (let i = 1; i < SIZE / 2; i++) {
+        if (Math.abs(buf[SIZE - i]) < threshold) { r2 = SIZE - i; break; }
+      }
+
+      buf = buf.slice(r1, r2);
+      SIZE = buf.length;
+
+      const c = new Array(SIZE).fill(0);
+      for (let i = 0; i < SIZE; i++) {
+        for (let j = 0; j < SIZE - i; j++) {
+          c[i] = c[i] + buf[j] * buf[j + i];
+        }
+      }
+
+      let d = 0; while (c[d] > c[d + 1]) d++;
+      let maxval = -1, maxpos = -1;
+      for (let i = d; i < SIZE; i++) {
+        if (c[i] > maxval) {
+          maxval = c[i];
+          maxpos = i;
+        }
+      }
+
+      let T0 = maxpos;
+      let x1 = c[T0 - 1], x2 = c[T0], x3 = c[T0 + 1];
+      let a = (x1 + x3 - 2 * x2) / 2;
+      let b = (x3 - x1) / 2;
+      if (a) T0 = T0 - b / (2 * a);
+
+      return sampleRate / T0;
     }
 
     startBtn.onclick = async () => {
@@ -134,14 +140,12 @@
 
       analyser = audioContext.createAnalyser();
       analyser.fftSize = 2048;
-      const bufferLength = analyser.fftSize;
-      dataArray = new Uint8Array(bufferLength);
 
       sourceNode.connect(delayNode);
       delayNode.connect(audioContext.destination);
       sourceNode.connect(analyser);
 
-      drawWaveform();
+      detectPitch();
 
       status.textContent = `🎧 Retardo activo: ${d} segundo(s)`;
       startBtn.disabled = true;
@@ -161,6 +165,4 @@
     };
   </script>
 </body>
-</html>
-
 </html>
