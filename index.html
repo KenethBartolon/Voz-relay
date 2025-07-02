@@ -36,7 +36,11 @@
   <div class="status" id="status">Esperando...</div>
 
   
+  
+  <h2>🎵 Nota actual:</h2>
+  <div id="currentNote" style="font-size: 2.5em; font-weight: bold; margin-bottom: 10px; color: #2a2a2a;">–</div>
   <div id="notesList"></div>
+
   
   <div id="scaleBox" style="margin-top: 30px; padding: 15px; background: #eef; border-radius: 10px; max-width: 400px; margin-left: auto; margin-right: auto;">
     <h3 style="margin-bottom: 10px;">🎼 Escala más probable:</h3>
@@ -78,6 +82,7 @@
         const note = noteFromPitch(ac);
 
         detectedNotes.add(note.replace(/\d/, '')); // Guardar solo la nota sin la octava
+        document.getElementById("currentNote").textContent = note;
         const div = document.createElement("div");
 
         div.textContent = `Nota: ${note} (${ac.toFixed(2)} Hz)`;
