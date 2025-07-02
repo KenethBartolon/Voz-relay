@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Voz con Retardo en Tiempo Real</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; padding: 2em; background: #f0f0f0; }
+    select, button { font-size: 1.2em; margin: 10px; padding: 10px; }
+    .status { margin-top: 20px; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>🔁 Voz con Retardo en Tiempo Real</h1>
+  <label for="delay">Retardo (segundos):</label>
+  <select id="delay">
+    <option value="1">1 segundo</option>
+    <option value="2">2 segundos</option>
+    <option value="3">3 segundos</option>
+    <option value="4">4 segundos</option>
+    <option value="5">5 segundos</option>
+    <option value="6">6 segundos</option>
+    <option value="7">7 segundos</option>
+    <option value="8">8 segundos</option>
+    <option value="9">9 segundos</option>
+    <option value="10">10 segundos</option>
+    <option value="11">11 segundos</option>
+    <option value="12">12 segundos</option>
+    <option value="13">13 segundos</option>
+    <option value="14">14 segundos</option>
+    <option value="15">15 segundos</option>
+  </select><br>
+  <button id="startBtn">🎙️ Iniciar</button>
+  <button id="stopBtn" disabled>⏹️ Detener</button>
+  <div class="status" id="status">Esperando...</div>
+
+  <script>
+    let audioContext, sourceNode, delayNode, stream;
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn  = document.getElementById("stopBtn");
+    const delaySelect = document.getElementById("delay");
+    const status = document.getElementById("status");
+
+    startBtn.onclick = async () => {
+      const d = parseInt(delaySelect.value);
+      audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      sourceNode = audioContext.createMediaStreamSource(stream);
+      delayNode = audioContext.createDelay(15);
+      delayNode.delayTime.setValueAtTime(d, audioContext.currentTime);
+      sourceNode.connect(delayNode);
+      delayNode.connect(audioContext.destination);
+      status.textContent = `🎧 Retardo activo: ${d} segundo(s)`;
+      startBtn.disabled = true;
+      stopBtn.disabled = false;
+    };
+
+    stopBtn.onclick = () => {
+      stream.getTracks().forEach(t => t.stop());
+      sourceNode.disconnect();
+      delayNode.disconnect();
+      audioContext.close();
+      status.textContent = "⏹️ Detenido.";
+      startBtn.disabled = false;
+      stopBtn.disabled = true;
+    };
+  </script>
+</body>
+</html>
